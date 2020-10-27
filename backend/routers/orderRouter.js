@@ -1,9 +1,16 @@
 import express from 'express';
 import expressAsyncHandler from 'express-async-handler';
 import Order from '../models/OrderModel.js';
-import { isAuth } from '../util.js';
+import { isAdmin, isAuth } from '../util.js';
 
 const orderRouter = express.Router();
+
+orderRouter.get('/', isAuth, isAdmin, expressAsyncHandler(async(req,res) =>{
+    /*Metodo populate, para llamar los datos de la otra tabla, ya que en la tabla Order solo se guarda el ID, si despues de user yo llamo otra
+      otra variable ('name') es para traer el nombre de esa, en este caso haré que traiga todas.*/
+    const orders = await Order.find({}).populate('user'); 
+    res.send(orders);
+}));
 
 orderRouter.get('/mine', isAuth, expressAsyncHandler(async(req,res)=>{
     const orders = await Order.find({user: req.user._id});
@@ -51,6 +58,28 @@ orderRouter.put('/:id/pay', isAuth, expressAsyncHandler(async(req,res) =>{
         };
         const updatedOrder = await order.save();
         res.send({message: 'Order Paid', order: updatedOrder});
+    }else{
+        res.status(404).send({message: 'Order not found'});
+    }
+}));
+
+orderRouter.delete('/:id', isAuth, isAdmin, expressAsyncHandler(async(req,res) =>{
+    const order = await Order.findById(req.params.id);
+    if(order){
+        const deleteOrder = await order.remove();
+        res.send({message: 'Order deleteds', order: deleteOrder});
+    }else{
+        res.status(404).send({message: 'Order not found'});
+    }
+}));
+
+orderRouter.put('/:id/deliver', isAuth, isAdmin, expressAsyncHandler(async(req,res) =>{
+    const order = await Order.findById(req.params.id);
+    if(order){
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+        const updatedOrder = await order.save();
+        res.send({message: 'Order Delivered', order: updatedOrder});
     }else{
         res.status(404).send({message: 'Order not found'});
     }
